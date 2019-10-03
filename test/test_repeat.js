@@ -686,7 +686,7 @@ describe('repeat', () => {
     });
   });
 
-  it('should throw an error when using .cron and .every simutaneously', done => {
+  it('should throw an error when using two of three repeatable options (cron, every, everyMillis) simutaneously', done => {
     queue
       .add(
         'repeat',
@@ -699,7 +699,7 @@ describe('repeat', () => {
         },
         err => {
           expect(err.message).to.be.eql(
-            'Both .cron and .every options are defined for this repeatable job'
+            'Two of three repeatable options (cron, every, everyMillis) are defined for this repeatable job'
           );
           done();
         }
@@ -744,5 +744,38 @@ describe('repeat', () => {
         done(Error('repeatable job got the wrong repeat count'));
       }
     });
+  });
+
+  it('should repeat every 2 seconds', function(done) {
+    this.timeout(20000);
+    const _this = this;
+    const date = new Date('2017-02-07 9:24:00');
+    this.clock.tick(date.getTime());
+    const nextTick = 2 * ONE_SECOND + 500;
+
+    queue
+      .add('repeat', { foo: 'bar' }, { repeat: { everyMillis: 2000 } })
+      .then(() => {
+      _this.clock.tick(nextTick);
+  });
+
+    queue.process('repeat', () => {
+      // dummy
+    });
+
+    let prev;
+    let counter = 0;
+    queue.on('completed', job => {
+      _this.clock.tick(nextTick);
+    if (prev) {
+      expect(prev.timestamp).to.be.lt(job.timestamp);
+      expect(job.timestamp - prev.timestamp).to.be.gte(2000);
+    }
+    prev = job;
+    counter++;
+    if (counter == 20) {
+      done();
+    }
+  });
   });
 });
